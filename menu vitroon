@@ -1,0 +1,253 @@
+-- VITROON HUB |
+
+local TAB_NAMES = {"Exploração", "Player", "Instrumentos", "Teleporte", "Missões"}
+local LOGO_IMAGE = "" -- Opcional: "rbxassetid://ID_DA_LOGO" para uso no Studio.
+local LOGO_FILE = "VitroonHub/assets/VitroonIcon-transparent.png" -- Opcional no Real.
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+assert(Players.LocalPlayer, "Vitroon Hub deve ser iniciado no cliente.")
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+local old = playerGui:FindFirstChild("VitroonHubUI")
+if old then old:Destroy() end
+
+local C = {
+    bg = Color3.fromRGB(12, 13, 22), panel = Color3.fromRGB(20, 21, 35),
+    card = Color3.fromRGB(25, 26, 43), line = Color3.fromRGB(46, 47, 70),
+    text = Color3.fromRGB(237, 237, 250), muted = Color3.fromRGB(143, 146, 174),
+    purple = Color3.fromRGB(143, 101, 255), blue = Color3.fromRGB(77, 149, 255),
+}
+local connections = {}
+local function connect(signal, fn)
+    local connection = signal:Connect(fn)
+    table.insert(connections, connection)
+    return connection
+end
+local function make(class, props, parent)
+    local obj = Instance.new(class)
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") then obj.AutoLocalize = false end
+    for key, value in pairs(props) do obj[key] = value end
+    obj.Parent = parent
+    return obj
+end
+local function corner(obj, radius)
+    make("UICorner", {CornerRadius = UDim.new(0, radius or 10)}, obj)
+end
+local function border(obj)
+    make("UIStroke", {Color = C.line, Thickness = 1}, obj)
+end
+local function text(parent, value, size, pos, dims, color)
+    return make("TextLabel", {BackgroundTransparency = 1, Text = value,
+        Font = Enum.Font.GothamMedium, TextSize = size, TextColor3 = color or C.text,
+        TextXAlignment = Enum.TextXAlignment.Left, Position = pos, Size = dims}, parent)
+end
+local function button(parent, value, pos, dims)
+    local b = make("TextButton", {Text = value, Font = Enum.Font.GothamMedium,
+        TextSize = 13, TextColor3 = C.text, BackgroundColor3 = C.panel,
+        BorderSizePixel = 0, Position = pos, Size = dims, AutoButtonColor = true}, parent)
+    corner(b, 8)
+    return b
+end
+local gui = make("ScreenGui", {Name = "VitroonHubUI", ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling}, playerGui)
+local window = make("Frame", {Name = "Window", Size = UDim2.fromOffset(800, 540),
+    AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+    BackgroundColor3 = C.bg, BorderSizePixel = 0, ClipsDescendants = true}, gui)
+corner(window, 14)
+border(window)
+local scale = make("UIScale", {Scale = 1}, window)
+local function fit()
+    local viewport = gui.AbsoluteSize
+    scale.Scale = math.max(0.1, math.min(1, (viewport.X - 24) / 800, (viewport.Y - 24) / 540))
+    window.Position = UDim2.fromScale(0.5, 0.5)
+end
+connect(gui:GetPropertyChangedSignal("AbsoluteSize"), fit)
+task.defer(fit)
+
+local header = make("Frame", {Size = UDim2.new(1, 0, 0, 66), BackgroundColor3 = C.panel,
+    BorderSizePixel = 0, Active = true}, window)
+do
+    local holder = make("Frame", {Name = "VitroonLogo", BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(13, 11), Size = UDim2.fromOffset(44, 44), ClipsDescendants = true}, header)
+    corner(holder, 8)
+    local fallback = text(holder, "V", 22, UDim2.new(), UDim2.fromScale(1, 1), C.purple)
+    fallback.Font = Enum.Font.GothamBold
+    fallback.TextXAlignment = Enum.TextXAlignment.Center
+    gui:SetAttribute("LogoLoaded", false)
+    local ok, asset = pcall(function() return LOGO_IMAGE ~= "" and LOGO_IMAGE or getcustomasset(LOGO_FILE) end)
+    if ok and type(asset) == "string" and asset ~= "" then
+        local icon = make("ImageLabel", {Name = "Icon", BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromScale(1, 1), Image = asset, ScaleType = Enum.ScaleType.Fit,
+            ImageRectOffset = Vector2.new(152, 236), ImageRectSize = Vector2.new(944, 768)}, holder)
+        local assetReady = false
+        local function refreshLogo()
+            local loaded = assetReady or icon.IsLoaded
+            fallback.Visible = not loaded
+            gui:SetAttribute("LogoLoaded", loaded)
+        end
+        connect(icon:GetPropertyChangedSignal("IsLoaded"), refreshLogo)
+        refreshLogo()
+        task.spawn(function()
+            pcall(function()
+                game:GetService("ContentProvider"):PreloadAsync({icon}, function(_, fetchStatus)
+                    if not gui.Parent or not icon.Parent then return end
+                    assetReady = fetchStatus == Enum.AssetFetchStatus.Success
+                    refreshLogo()
+                end)
+            end)
+        end)
+    end
+end
+text(header, "VITROON HUB", 16, UDim2.fromOffset(69, 13), UDim2.fromOffset(160, 24))
+text(header, "Script By: Arkynn", 9, UDim2.fromOffset(70, 36), UDim2.fromOffset(200, 16), C.muted)
+local close = button(header, "×", UDim2.fromOffset(749, 17), UDim2.fromOffset(32, 32))
+local accent = make("Frame", {Position = UDim2.fromOffset(0, 65), Size = UDim2.new(1, 0, 0, 1),
+    BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0}, header)
+make("UIGradient", {Color = ColorSequence.new(C.purple, C.blue)}, accent)
+
+local body = make("Frame", {BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 66),
+    Size = UDim2.new(1, 0, 1, -66)}, window)
+local sidebar = make("Frame", {Size = UDim2.new(0, 148, 1, 0), BackgroundColor3 = C.panel,
+    BorderSizePixel = 0}, body)
+text(sidebar, "WORKSPACE", 9, UDim2.fromOffset(20, 24), UDim2.fromOffset(120, 16), C.muted)
+do
+    local localPlayer = Players.LocalPlayer
+    local profile = make("Frame", {Name = "LocalPlayerProfile", BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 1, -58), Size = UDim2.new(1, 0, 0, 58)}, sidebar)
+    make("Frame", {BackgroundColor3 = C.line, BorderSizePixel = 0,
+        Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -24, 0, 1)}, profile)
+    local avatar = make("ImageLabel", {Name = "PlayerAvatar", BackgroundColor3 = C.card,
+        BorderSizePixel = 0, Position = UDim2.fromOffset(12, 13), Size = UDim2.fromOffset(32, 32),
+        Image = "", ScaleType = Enum.ScaleType.Fit}, profile)
+    corner(avatar, 16)
+    local placeholder = text(avatar, localPlayer.Name:sub(1, 1):upper(), 14,
+        UDim2.new(), UDim2.fromScale(1, 1), C.purple)
+    placeholder.TextXAlignment = Enum.TextXAlignment.Center
+    local nickname = text(profile, localPlayer.DisplayName, 11, UDim2.fromOffset(52, 11), UDim2.fromOffset(84, 19))
+    nickname.Name = "PlayerNickname"
+    nickname.TextTruncate = Enum.TextTruncate.AtEnd
+    local username = text(profile, "@" .. localPlayer.Name, 9, UDim2.fromOffset(52, 29), UDim2.fromOffset(84, 16), C.muted)
+    username.Name = "PlayerUsername"
+    username.TextTruncate = Enum.TextTruncate.AtEnd
+    connect(localPlayer:GetPropertyChangedSignal("DisplayName"), function() nickname.Text = localPlayer.DisplayName end)
+    gui:SetAttribute("ProfileUserId", localPlayer.UserId)
+    gui:SetAttribute("ProfileAvatarReady", false)
+    task.spawn(function()
+        for _ = 1, 3 do
+            if not gui.Parent then return end
+            local ok, content, ready = pcall(Players.GetUserThumbnailAsync, Players, localPlayer.UserId,
+                Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            if not gui.Parent or not avatar.Parent then return end
+            if ok and ready and type(content) == "string" and content ~= "" then
+                avatar.Image = content
+                placeholder.Visible = false
+                gui:SetAttribute("ProfileAvatarReady", true)
+                return
+            end
+            task.wait(2)
+        end
+    end)
+end
+local pages, tabs = {}, {}
+local function page(name, order)
+    local tab = button(sidebar, name, UDim2.fromOffset(12, 56 + (order - 1) * 48), UDim2.fromOffset(124, 40))
+    local p = make("ScrollingFrame", {Name = name, BackgroundTransparency = 1, BorderSizePixel = 0,
+        Position = UDim2.fromOffset(168, 20), Size = UDim2.new(1, -188, 1, -40),
+        CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = C.purple, Visible = false}, body)
+    pages[name], tabs[name] = p, tab
+    connect(tab.Activated, function()
+        gui:SetAttribute("SelectedTab", name)
+        for key, panel in pairs(pages) do
+            panel.Visible = key == name
+            tabs[key].BackgroundColor3 = key == name and Color3.fromRGB(51, 37, 83) or C.panel
+            tabs[key].TextColor3 = key == name and C.purple or C.muted
+        end
+    end)
+    return p
+end
+
+
+local UI = {Gui = gui, Window = window, Pages = pages, Tabs = tabs, Colors = C}
+local tabOrder = {}
+local destroyed = false
+local reopen = button(gui, "CTRL /  Abrir menu", UDim2.new(0, 16, 0.5, -20), UDim2.fromOffset(140, 40))
+reopen.Visible = false
+border(reopen)
+
+function UI:SelectTab(name)
+    assert(not destroyed, "Este menu já foi destruído.")
+    assert(pages[name], "Aba inexistente: " .. tostring(name))
+    for key, panel in pairs(pages) do
+        panel.Visible = key == name
+        tabs[key].BackgroundColor3 = key == name and Color3.fromRGB(51, 37, 83) or C.panel
+        tabs[key].TextColor3 = key == name and C.purple or C.muted
+    end
+    gui:SetAttribute("SelectedTab", name)
+end
+
+function UI:AddTab(name)
+    assert(not destroyed, "Este menu já foi destruído.")
+    assert(type(name) == "string" and name ~= "", "Informe um nome de aba.")
+    if pages[name] then return pages[name] end
+    table.insert(tabOrder, name)
+    local panel = page(name, #tabOrder)
+    text(panel, name, 20, UDim2.fromOffset(0, 0), UDim2.new(1, -8, 0, 28))
+    if #tabOrder == 1 then self:SelectTab(name) end
+    return panel
+end
+
+function UI:SetVisible(value)
+    if destroyed then return end
+    window.Visible = value == true
+    reopen.Visible = not window.Visible
+end
+
+function UI:Destroy()
+    if not destroyed then gui:Destroy() end
+end
+
+for _, name in ipairs(TAB_NAMES) do UI:AddTab(name) end
+connect(close.Activated, function() UI:SetVisible(false) end)
+connect(reopen.Activated, function() UI:SetVisible(true) end)
+
+local dragging, dragInput, dragStart, windowStart
+connect(header.InputBegan, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.Position.X >= close.AbsolutePosition.X then return end
+        dragging, dragInput, dragStart, windowStart = true, input, input.Position, window.Position
+    end
+end)
+connect(UIS.InputChanged, function(input)
+    if dragging and (input == dragInput or
+        (dragInput.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement)) then
+        local delta = input.Position - dragStart
+        local viewport = gui.AbsoluteSize
+        local width, height = window.AbsoluteSize.X, window.AbsoluteSize.Y
+        local x = math.clamp(windowStart.X.Scale * viewport.X + windowStart.X.Offset + delta.X, width / 2, math.max(width / 2, viewport.X - width / 2))
+        local y = math.clamp(windowStart.Y.Scale * viewport.Y + windowStart.Y.Offset + delta.Y, height / 2, math.max(height / 2, viewport.Y - height / 2))
+        window.Position = UDim2.fromOffset(x, y)
+    end
+end)
+connect(UIS.InputEnded, function(input) if input == dragInput then dragging = false end end)
+connect(UIS.WindowFocusReleased, function() dragging = false end)
+connect(UIS.InputBegan, function(input, processed)
+    if not processed and not UIS:GetFocusedTextBox() and input.KeyCode == Enum.KeyCode.RightControl then
+        UI:SetVisible(not window.Visible)
+    end
+end)
+connect(gui.Destroying, function()
+    destroyed = true
+    dragging = false
+    for _, connection in ipairs(connections) do connection:Disconnect() end
+    table.clear(connections)
+end)
+
+-- Integração opcional com a recarga do MCP; a base funciona sem STATE.
+if type(STATE) == "table" and type(STATE.onCleanup) == "function" then
+    STATE.onCleanup(function() UI:Destroy() end)
+end
+
+
+return UI
